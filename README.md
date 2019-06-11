@@ -3,9 +3,9 @@ Bacterial cells can be attached to the surface of a glass slide through their fl
 Program to analyze directional switching of the rotating cell body tethered by a single flagellum over a glass surface rotating parallel to it.
 ***
 **Program made under the supervison of:**
+***
+
 ![alt text](http://web.iitd.ac.in/~elangovan/index_files/image003.jpg "Logo Title Text 1")
-.
-.
 ***
 Prof. Ravikrishnan Elangovan Assistant Professor,
 Block I 328, Department of Biochemical Engg and Biotechnology 
