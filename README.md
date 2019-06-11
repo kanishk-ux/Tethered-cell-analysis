@@ -1,0 +1,2 @@
+# Tethered-cell-analysis
+Bacterial cells can be attached to the surface of a glass slide through their flagella which results in the cell body to rotate because of the presence of the bacterial flagellar motor, this program calculates angular velocity, number of frames rotated in clockwise direction and anti clockwise direction, frequency, length of cell, the center of rotation etc and gives outputs in the form of graphs and 2 .csv files 
