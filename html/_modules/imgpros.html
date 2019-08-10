@@ -1,0 +1,212 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>imgpros &mdash; MTP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="MTP 1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for imgpros</h1><div class="highlight"><pre>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	File for all the image processing required in the program.</span>
+<span class="sd">	Contains 3 functions to be called as required:</span>
+<span class="sd">		threshold: Used for thresholding all frames using python image processing library cv2 (OpenCV)</span>
+<span class="sd">		click_and_crop: Used to enable the user to select a cell in the GUI window</span>
+<span class="sd">		crop: Allows user to select a free-size rectangular portion of the first frame consisting of a cell for furthur analysis</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">linear_model</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">utilities</span>
+
+<span class="c1">#defining variables for future use</span>
+<span class="n">image</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">refPt</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">trace</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">cropping</span> <span class="o">=</span> <span class="bp">False</span>
+
+<div class="viewcode-block" id="threshold"><a class="viewcode-back" href="../imgpros.html#imgpros.threshold">[docs]</a><span class="k">def</span> <span class="nf">threshold</span><span class="p">(</span><span class="n">img</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">		Used for thresholding all frames using python image processing library cv2 (OpenCV)</span>
+<span class="sd">		Input: img (Image taken as input from file)</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+
+	<span class="n">images</span> <span class="o">=</span> <span class="p">[]</span>		<span class="c1">#defining image array</span>
+	<span class="n">gray</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2GRAY</span><span class="p">)</span>	<span class="c1">#convert image to black and white using cv2</span>
+
+	<span class="n">kernel</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="mi">9</span>	<span class="c1">#takes a 3X3 brush matrix to blur the image </span>
+
+	<span class="n">avg_color_per_row</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">gray</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>	 	<span class="c1">#calculates average colour per row </span>
+	<span class="n">avg_color</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">avg_color_per_row</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>	<span class="c1">#average colour</span>
+
+	<span class="k">if</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">avg_color</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+		<span class="n">avg_color</span> <span class="o">=</span> <span class="mi">1</span>
+
+	<span class="n">ret</span><span class="p">,</span> <span class="n">thresh</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">gray</span><span class="p">,</span> <span class="n">avg_color</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_BINARY</span><span class="p">)</span>	<span class="c1">#calling thresholding function of cv2 library</span>
+	<span class="n">binary1</span> <span class="o">=</span> <span class="n">thresh</span>
+	<span class="n">thresh</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">filter2D</span><span class="p">(</span><span class="n">thresh</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>		<span class="c1">#calling filter2D function of cv2 library</span>
+	<span class="n">smooth</span> <span class="o">=</span> <span class="n">thresh</span> 								<span class="c1">#smoothening the image</span>
+	<span class="n">avg_color_per_row</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">thresh</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>	<span class="c1">#calculating average colour per row</span>
+	<span class="n">avg_color</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">avg_color_per_row</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>	<span class="c1">#calculating average colour</span>
+	<span class="n">ret</span><span class="p">,</span> <span class="n">thresh</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">thresh</span><span class="p">,</span> <span class="n">avg_color</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_BINARY</span><span class="p">)</span>	<span class="c1">#calling threshold function of cv2 library</span>
+	<span class="n">thresh1</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">medianBlur</span><span class="p">(</span><span class="n">thresh</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>		<span class="c1">#calling medianBlur function of cv2 library</span>
+	<span class="n">binary2</span> <span class="o">=</span> <span class="n">thresh</span>
+	<span class="n">thresh</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">dilate</span><span class="p">(</span><span class="n">thresh</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>	<span class="c1">#calling dilate fuction of cv2 library</span>
+	<span class="k">return</span> <span class="n">thresh1</span></div>
+
+<div class="viewcode-block" id="click_and_crop"><a class="viewcode-back" href="../imgpros.html#imgpros.click_and_crop">[docs]</a><span class="k">def</span> <span class="nf">click_and_crop</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">		Used to enable the user to select a cell in the GUI window</span>
+<span class="sd">		Called inside the crop function</span>
+<span class="sd">		Triggered when the right mouse button is clicked and ends when the left mouse button is clicked</span>
+<span class="sd">		Stores the chosen coordinates in global variable refPt</span>
+<span class="sd">		Inputs: event,x,y,flags,param</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+
+	<span class="c1"># grab references to the global variables</span>
+	<span class="k">global</span> <span class="n">refPt</span><span class="p">,</span> <span class="n">cropping</span><span class="p">,</span><span class="n">image</span>
+	<span class="c1"># if the left mouse button was clicked, record the starting</span>
+	<span class="c1"># (x, y) coordinates and indicate that cropping is being</span>
+	<span class="c1"># performed</span>
+	<span class="k">if</span> <span class="n">event</span> <span class="o">==</span> <span class="n">cv2</span><span class="o">.</span><span class="n">EVENT_LBUTTONDOWN</span><span class="p">:</span>
+		<span class="n">refPt</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)]</span>
+		<span class="n">cropping</span> <span class="o">=</span> <span class="bp">True</span>
+
+	<span class="c1"># check to see if the left mouse button was released</span>
+	<span class="k">elif</span> <span class="n">event</span> <span class="o">==</span> <span class="n">cv2</span><span class="o">.</span><span class="n">EVENT_LBUTTONUP</span><span class="p">:</span>
+		<span class="c1"># record the ending (x, y) coordinates and indicate that</span>
+		<span class="c1"># the cropping operation is finished</span>
+		<span class="n">refPt</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+		<span class="n">cropping</span> <span class="o">=</span> <span class="bp">False</span>
+
+		<span class="c1"># draw a rectangle around the region of interest</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s2">&quot;image&quot;</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="crop"><a class="viewcode-back" href="../imgpros.html#imgpros.crop">[docs]</a><span class="k">def</span> <span class="nf">crop</span><span class="p">():</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">		Allows user to select a free-size rectangular portion of the first frame consisting of a cell for furthur analysis</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+
+	<span class="n">meta</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">meta</span>
+	<span class="n">filename</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">filename</span>			<span class="c1">#calling filename from utilities file</span>
+	<span class="n">folder_path</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">folder_path</span>		<span class="c1">#calling folder_path from utilities file</span>
+	<span class="k">global</span> <span class="n">image</span><span class="p">,</span><span class="n">trace</span><span class="p">,</span><span class="n">refPt</span>       			<span class="c1">#defining global variables</span>
+	<span class="n">addr</span> <span class="o">=</span> <span class="n">folder_path</span> <span class="o">+</span> <span class="s1">&#39;/img_000000&#39;</span>		<span class="c1">#defining address</span>
+	<span class="n">ad</span> <span class="o">=</span> <span class="s1">&#39;_Default_000.tif&#39;</span>
+	<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;crop cell for analysis.....&#39;</span><span class="p">)</span>
+	<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;Press c to proceed after cropping&#39;</span><span class="p">)</span>
+	<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;Press r to redo&#39;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">meta</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>							<span class="c1">#case when metadata is present</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">+</span> <span class="s1">&#39;000&#39;</span> <span class="o">+</span> <span class="n">ad</span>
+	<span class="k">else</span><span class="p">:</span>									<span class="c1">#case when metadata is not present</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">folder_path</span> <span class="o">+</span> <span class="n">filename</span>
+	<span class="c1"># load the image, clone it, and setup the mouse callback function</span>
+	<span class="n">image</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>				<span class="c1">#calling imread function of cv2</span>
+	<span class="n">image</span> <span class="o">=</span> <span class="n">threshold</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+	<span class="n">clone</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+	<span class="n">cv2</span><span class="o">.</span><span class="n">namedWindow</span><span class="p">(</span><span class="s2">&quot;image&quot;</span><span class="p">)</span>				<span class="c1">#calling namedWindow function of cv2</span>
+	<span class="n">cv2</span><span class="o">.</span><span class="n">setMouseCallback</span><span class="p">(</span><span class="s2">&quot;image&quot;</span><span class="p">,</span> <span class="n">click_and_crop</span><span class="p">)</span>	<span class="c1">#calling setMouseCallback function of cv2</span>
+
+	<span class="c1"># keep looping until the &#39;q&#39; key is pressed</span>
+	<span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+		<span class="c1"># display the image and wait for a keypress</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s2">&quot;image&quot;</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+		<span class="n">key</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span>
+
+		<span class="c1"># if the &#39;r&#39; key is pressed, reset the cropping region</span>
+		<span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">):</span>
+			<span class="n">image</span> <span class="o">=</span> <span class="n">clone</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+		<span class="c1"># if the &#39;c&#39; key is pressed, break from the loop</span>
+		<span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">):</span>
+			<span class="k">break</span>
+
+	<span class="c1"># if there are two reference points, then crop the region of interest</span>
+	<span class="c1"># from teh image and display it</span>
+
+	<span class="c1"># close all open windows</span>
+	<span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+
+	<span class="n">a</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span><span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+	<span class="n">trace</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">numpy</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>	<span class="c1">#output trace</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Kanishk.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

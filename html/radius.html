@@ -1,0 +1,133 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>radius module &mdash; MTP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="MTP 1.0 documentation" href="index.html" />
+    <link rel="next" title="results module" href="results.html" />
+    <link rel="prev" title="model module" href="model.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-radius">
+<span id="radius-module"></span><h1>radius module<a class="headerlink" href="#module-radius" title="Permalink to this headline">¶</a></h1>
+<p>Used for fitting circle to the COM data of each frame of the rotating cell by 3 methods: Least Square, ODR, Algebraic
+Analyzes the centre of rotation and calculates the radius, meaning the distance b/w the centre of rotation and the COM</p>
+<p>Credits: User mpastell on Github in repo SciPy-CookBook
+Original Code on <a class="reference external" href="https://github.com/mpastell/SciPy-CookBook/blob/master/originals/Least_Squares_Circle_attachments/least_squares_circle.py">https://github.com/mpastell/SciPy-CookBook/blob/master/originals/Least_Squares_Circle_attachments/least_squares_circle.py</a></p>
+<dl class="function">
+<dt id="radius.calc_R">
+<code class="descclassname">radius.</code><code class="descname">calc_R</code><span class="sig-paren">(</span><em>xc</em>, <em>yc</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/radius.html#calc_R"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#radius.calc_R" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate the distance of each 2D points from the center (xc, yc)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="radius.countcalls">
+<code class="descclassname">radius.</code><code class="descname">countcalls</code><span class="sig-paren">(</span><em>fn</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/radius.html#countcalls"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#radius.countcalls" title="Permalink to this definition">¶</a></dt>
+<dd><p>decorator function count function calls</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="radius.f_2">
+<code class="descclassname">radius.</code><code class="descname">f_2</code><span class="sig-paren">(</span><em>c</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/radius.html#f_2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#radius.f_2" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate the algebraic distance between the 2D points and the mean circle centered at c=(xc, yc)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="radius.f_3">
+<code class="descclassname">radius.</code><code class="descname">f_3</code><span class="sig-paren">(</span><em>beta</em>, <em>x</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/radius.html#f_3"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#radius.f_3" title="Permalink to this definition">¶</a></dt>
+<dd><p>implicit definition of the circle</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="radius.plot_all">
+<code class="descclassname">radius.</code><code class="descname">plot_all</code><span class="sig-paren">(</span><em>residu2=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/radius.html#plot_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#radius.plot_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>function to plot all the graphs</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="model.html" title="previous chapter">model module</a></li>
+      <li>Next: <a href="results.html" title="next chapter">results module</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/radius.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Kanishk.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="_sources/radius.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

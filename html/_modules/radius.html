@@ -1,0 +1,331 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>radius &mdash; MTP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="MTP 1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for radius</h1><div class="highlight"><pre>
+<span class="sd">&#39;&#39;&#39;Used for fitting circle to the COM data of each frame of the rotating cell by 3 methods: Least Square, ODR, Algebraic</span>
+<span class="sd">	Analyzes the centre of rotation and calculates the radius, meaning the distance b/w the centre of rotation and the COM</span>
+
+<span class="sd">	Credits: User mpastell on Github in repo SciPy-CookBook</span>
+<span class="sd">	Original Code on https://github.com/mpastell/SciPy-CookBook/blob/master/originals/Least_Squares_Circle_attachments/least_squares_circle.py</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">scipy.optimize</span> <span class="kn">as</span> <span class="nn">opt</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">optimize</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">odr</span>
+<span class="kn">from</span> <span class="nn">__main__</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">model</span>
+<span class="kn">import</span> <span class="nn">utilities</span>
+
+
+<span class="n">limit</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">utilities</span><span class="o">.</span><span class="n">num_frames</span><span class="p">,</span><span class="mi">500</span><span class="p">)</span>	<span class="c1">#limits number of frames to 500</span>
+
+<span class="c1">#defines variables for furthur use</span>
+<span class="n">radius2</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">residues12</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">residues22</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">xcomlist2</span><span class="p">[:</span><span class="n">limit</span><span class="p">]</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">ycomlist2</span><span class="p">[:</span><span class="n">limit</span><span class="p">]</span>
+
+<span class="n">x_m</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>	<span class="c1">#calculates mean of all values in list x</span>
+<span class="n">y_m</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>	<span class="c1">#calculates mean of all values in list y</span>
+
+<span class="n">method_1</span> <span class="o">=</span> <span class="s1">&#39;algebraic&#39;</span>
+<span class="n">method_2</span> <span class="o">=</span> <span class="s2">&quot;leastsq&quot;</span>
+<span class="n">basename</span> <span class="o">=</span> <span class="s1">&#39;circle&#39;</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">x_m</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">y_m</span>
+
+
+<span class="c1">#  == METHOD 1 ==</span>
+<span class="c1">#  ALGEBRAIC METHOD</span>
+
+<span class="c1">#defines variables to be used in Method 1</span>
+<span class="n">Suv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
+<span class="n">Suu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">Svv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">v</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">Suuv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
+<span class="n">Suvv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">Suuu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">Svvv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">v</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># Solving the linear system</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">array</span><span class="p">([[</span><span class="n">Suu</span><span class="p">,</span> <span class="n">Suv</span><span class="p">],</span> <span class="p">[</span><span class="n">Suv</span><span class="p">,</span> <span class="n">Svv</span><span class="p">]])</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">array</span><span class="p">([</span><span class="n">Suuu</span> <span class="o">+</span> <span class="n">Suvv</span><span class="p">,</span> <span class="n">Svvv</span> <span class="o">+</span> <span class="n">Suuv</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+<span class="n">uc</span><span class="p">,</span> <span class="n">vc</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>		<span class="c1">#use function to solve by algebraic method</span>
+
+<span class="n">xc_1</span> <span class="o">=</span> <span class="n">x_m</span> <span class="o">+</span> <span class="n">uc</span>
+<span class="n">yc_1</span> <span class="o">=</span> <span class="n">y_m</span> <span class="o">+</span> <span class="n">vc</span>
+
+<span class="c1"># Calculation of all distances from the center (xc_1, yc_1)</span>
+<span class="n">Ri_1</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">xc_1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">yc_1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">R_1</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">Ri_1</span><span class="p">)</span>
+<span class="n">residu_1</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_1</span> <span class="o">-</span> <span class="n">R_1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">residu2_1</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_1</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">R_1</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 1 starts&#39;</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">R_1</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu_1</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu2_1</span><span class="p">)</span>
+<span class="n">radius2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">R_1</span><span class="p">)</span>
+<span class="n">residues12</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu_1</span><span class="p">)</span>
+<span class="n">residues22</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu2_1</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 1 ends&#39;</span><span class="p">)</span>
+
+<span class="c1"># Decorator to count functions calls</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+
+
+<div class="viewcode-block" id="countcalls"><a class="viewcode-back" href="../radius.html#radius.countcalls">[docs]</a><span class="k">def</span> <span class="nf">countcalls</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;decorator function count function calls&#39;&#39;&#39;</span>
+	<span class="nd">@functools.wraps</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+	<span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+		<span class="n">wrapped</span><span class="o">.</span><span class="n">ncalls</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+	<span class="n">wrapped</span><span class="o">.</span><span class="n">ncalls</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">return</span> <span class="n">wrapped</span></div>
+
+
+<span class="c1">#  == METHOD 2 ==</span>
+<span class="c1">#  LEAST SQUARE METHOD</span>
+
+<div class="viewcode-block" id="calc_R"><a class="viewcode-back" href="../radius.html#radius.calc_R">[docs]</a><span class="k">def</span> <span class="nf">calc_R</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; calculate the distance of each 2D points from the center (xc, yc) &quot;&quot;&quot;</span>
+	<span class="k">return</span> <span class="n">sqrt</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">xc</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">yc</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span></div>
+
+
+<span class="nd">@countcalls</span>
+<div class="viewcode-block" id="f_2"><a class="viewcode-back" href="../radius.html#radius.f_2">[docs]</a><span class="k">def</span> <span class="nf">f_2</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; calculate the algebraic distance between the 2D points and the mean circle centered at c=(xc, yc) &quot;&quot;&quot;</span>
+	<span class="n">Ri</span> <span class="o">=</span> <span class="n">calc_R</span><span class="p">(</span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">Ri</span> <span class="o">-</span> <span class="n">Ri</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span></div>
+
+
+<span class="n">center_estimate</span> <span class="o">=</span> <span class="n">x_m</span><span class="p">,</span> <span class="n">y_m</span>
+<span class="n">center_2</span><span class="p">,</span> <span class="n">ier</span> <span class="o">=</span> <span class="n">optimize</span><span class="o">.</span><span class="n">leastsq</span><span class="p">(</span><span class="n">f_2</span><span class="p">,</span> <span class="n">center_estimate</span><span class="p">)</span>
+
+<span class="n">xc_2</span><span class="p">,</span> <span class="n">yc_2</span> <span class="o">=</span> <span class="n">center_2</span>
+<span class="n">Ri_2</span> <span class="o">=</span> <span class="n">calc_R</span><span class="p">(</span><span class="n">xc_2</span><span class="p">,</span> <span class="n">yc_2</span><span class="p">)</span>
+<span class="n">R_2</span> <span class="o">=</span> <span class="n">Ri_2</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">residu_2</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_2</span> <span class="o">-</span> <span class="n">R_2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">residu2_2</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_2</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">R_2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ncalls_2</span> <span class="o">=</span> <span class="n">f_2</span><span class="o">.</span><span class="n">ncalls</span>
+
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 2a starts&#39;</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">R_2</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu_2</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu2_2</span><span class="p">)</span>
+<span class="n">radius2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">R_2</span><span class="p">)</span>
+<span class="n">residues12</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu_2</span><span class="p">)</span>
+<span class="n">residues22</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu2_2</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 2a ends&#39;</span><span class="p">)</span>
+
+
+<span class="c1"># == METHOD 3 ==</span>
+<span class="c1"># ODR METHOD</span>
+
+<span class="n">method_3</span> <span class="o">=</span> <span class="s2">&quot;odr&quot;</span>
+
+
+<span class="nd">@countcalls</span>
+<div class="viewcode-block" id="f_3"><a class="viewcode-back" href="../radius.html#radius.f_3">[docs]</a><span class="k">def</span> <span class="nf">f_3</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; implicit definition of the circle &quot;&quot;&quot;</span>
+	<span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">beta</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">beta</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">beta</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span></div>
+
+
+<span class="c1"># initial guess for parameters</span>
+<span class="n">R_m</span> <span class="o">=</span> <span class="n">calc_R</span><span class="p">(</span><span class="n">x_m</span><span class="p">,</span> <span class="n">y_m</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">beta0</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_m</span><span class="p">,</span> <span class="n">y_m</span><span class="p">,</span> <span class="n">R_m</span><span class="p">]</span>
+
+<span class="c1"># for implicit function :</span>
+<span class="c1">#       data.x contains both coordinates of the points</span>
+<span class="c1">#       data.y is the dimensionality of the response</span>
+<span class="n">lsc_data</span> <span class="o">=</span> <span class="n">odr</span><span class="o">.</span><span class="n">Data</span><span class="p">(</span><span class="n">row_stack</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">]),</span> <span class="n">y</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">lsc_model</span> <span class="o">=</span> <span class="n">odr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">f_3</span><span class="p">,</span> <span class="n">implicit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">lsc_odr</span> <span class="o">=</span> <span class="n">odr</span><span class="o">.</span><span class="n">ODR</span><span class="p">(</span><span class="n">lsc_data</span><span class="p">,</span> <span class="n">lsc_model</span><span class="p">,</span> <span class="n">beta0</span><span class="p">)</span>
+<span class="n">lsc_out</span> <span class="o">=</span> <span class="n">lsc_odr</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+<span class="n">xc_3</span><span class="p">,</span> <span class="n">yc_3</span><span class="p">,</span> <span class="n">R_3</span> <span class="o">=</span> <span class="n">lsc_out</span><span class="o">.</span><span class="n">beta</span>
+<span class="n">Ri_3</span> <span class="o">=</span> <span class="n">calc_R</span><span class="p">(</span><span class="n">xc_3</span><span class="p">,</span> <span class="n">yc_3</span><span class="p">)</span>
+<span class="n">residu_3</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_3</span> <span class="o">-</span> <span class="n">R_3</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">residu2_3</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Ri_3</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">R_3</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ncalls_3</span> <span class="o">=</span> <span class="n">f_3</span><span class="o">.</span><span class="n">ncalls</span>
+
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 3 starts&#39;</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">R_3</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu_3</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">residu2_3</span><span class="p">)</span>
+<span class="n">radius2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">R_3</span><span class="p">)</span>
+<span class="n">residues12</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu_3</span><span class="p">)</span>
+<span class="n">residues22</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residu2_3</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;method 3 ends&#39;</span><span class="p">)</span>
+
+<span class="c1"># plotting functions</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">p</span><span class="p">,</span> <span class="n">cm</span><span class="p">,</span> <span class="n">colors</span>
+<span class="n">p</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="plot_all"><a class="viewcode-back" href="../radius.html#radius.plot_all">[docs]</a><span class="k">def</span> <span class="nf">plot_all</span><span class="p">(</span><span class="n">residu2</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; function to plot all the graphs&#39;&#39;&#39;</span>
+	<span class="n">f</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;white&#39;</span><span class="p">)</span>  <span class="c1"># figsize=(7, 5.4), dpi=72,</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+
+	<span class="n">theta_fit</span> <span class="o">=</span> <span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">pi</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="mi">180</span><span class="p">)</span>
+
+	<span class="n">x_fit1</span> <span class="o">=</span> <span class="n">xc_1</span> <span class="o">+</span> <span class="n">R_1</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">y_fit1</span> <span class="o">=</span> <span class="n">yc_1</span> <span class="o">+</span> <span class="n">R_1</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_fit1</span><span class="p">,</span> <span class="n">y_fit1</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">method_1</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+	<span class="n">x_fit2</span> <span class="o">=</span> <span class="n">xc_2</span> <span class="o">+</span> <span class="n">R_2</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">y_fit2</span> <span class="o">=</span> <span class="n">yc_2</span> <span class="o">+</span> <span class="n">R_2</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_fit2</span><span class="p">,</span> <span class="n">y_fit2</span><span class="p">,</span> <span class="s1">&#39;k--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">method_2</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+	<span class="n">x_fit3</span> <span class="o">=</span> <span class="n">xc_3</span> <span class="o">+</span> <span class="n">R_3</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">y_fit3</span> <span class="o">=</span> <span class="n">yc_3</span> <span class="o">+</span> <span class="n">R_3</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta_fit</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_fit3</span><span class="p">,</span> <span class="n">y_fit3</span><span class="p">,</span> <span class="s1">&#39;r-.&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">method_3</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">xc_1</span><span class="p">],</span> <span class="p">[</span><span class="n">yc_1</span><span class="p">],</span> <span class="s1">&#39;bD&#39;</span><span class="p">,</span> <span class="n">mec</span><span class="o">=</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">mew</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">xc_2</span><span class="p">],</span> <span class="p">[</span><span class="n">yc_2</span><span class="p">],</span> <span class="s1">&#39;gD&#39;</span><span class="p">,</span> <span class="n">mec</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">mew</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">xc_3</span><span class="p">],</span> <span class="p">[</span><span class="n">yc_3</span><span class="p">],</span> <span class="s1">&#39;kD&#39;</span><span class="p">,</span> <span class="n">mec</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">mew</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+	<span class="c1"># draw</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+
+	<span class="c1"># plot the residu fields</span>
+	<span class="n">nb_pts</span> <span class="o">=</span> <span class="mi">100</span>
+
+	<span class="n">p</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+	<span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">xlim</span><span class="p">()</span>
+	<span class="n">bottom</span><span class="p">,</span> <span class="n">top</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">ylim</span><span class="p">()</span>
+
+	<span class="n">vmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">)</span>
+	<span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">top</span><span class="p">)</span>
+
+	<span class="n">xg</span><span class="p">,</span> <span class="n">yg</span> <span class="o">=</span> <span class="n">ogrid</span><span class="p">[</span><span class="n">vmin</span><span class="p">:</span><span class="n">vmax</span><span class="p">:</span><span class="n">nb_pts</span> <span class="o">*</span> <span class="mi">1j</span><span class="p">,</span> <span class="n">vmin</span><span class="p">:</span><span class="n">vmax</span><span class="p">:</span><span class="n">nb_pts</span> <span class="o">*</span> <span class="mi">1j</span><span class="p">]</span>
+	<span class="n">xg</span> <span class="o">=</span> <span class="n">xg</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">]</span>
+	<span class="n">yg</span> <span class="o">=</span> <span class="n">yg</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">]</span>
+
+	<span class="n">Rig</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">power</span><span class="p">((</span><span class="n">xg</span> <span class="o">-</span> <span class="n">x</span><span class="p">),</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">power</span><span class="p">((</span><span class="n">yg</span> <span class="o">-</span> <span class="n">y</span><span class="p">),</span><span class="mi">2</span><span class="p">))</span>
+	<span class="n">Rig_m</span> <span class="o">=</span> <span class="n">Rig</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">]</span>
+
+	<span class="k">if</span> <span class="n">residu2</span><span class="p">:</span>
+		<span class="n">residu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Rig</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">Rig_m</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">residu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">Rig</span> <span class="o">-</span> <span class="n">Rig_m</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+	<span class="n">lvl</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">linspace</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">residu</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="n">log</span><span class="p">(</span><span class="n">residu</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span> <span class="mi">15</span><span class="p">))</span>
+
+	<span class="n">p</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">xg</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">yg</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">residu</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">lvl</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cm</span><span class="o">.</span><span class="n">Purples_r</span><span class="p">)</span>  <span class="c1"># , norm=colors.LogNorm())</span>
+	<span class="n">cbar</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">fraction</span><span class="o">=</span><span class="mf">0.175</span><span class="p">,</span> <span class="n">format</span><span class="o">=</span><span class="s1">&#39;%.f&#39;</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xg</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">yg</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">residu</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">lvl</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="s2">&quot;lightblue&quot;</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="n">residu2</span><span class="p">:</span>
+		<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s1">&#39;Residu_2 - algebraic approximation&#39;</span><span class="p">)</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s1">&#39;Residu&#39;</span><span class="p">)</span>
+
+	<span class="c1"># plot data</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">mec</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">mew</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">,</span> <span class="n">labelspacing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+
+	<span class="n">p</span><span class="o">.</span><span class="n">xlim</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="n">bottom</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+
+	<span class="n">p</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">utilities</span><span class="o">.</span><span class="n">cell_name</span><span class="p">)</span>
+	<span class="n">p</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">utilities</span><span class="o">.</span><span class="n">out_folder</span><span class="o">+</span><span class="n">utilities</span><span class="o">.</span><span class="n">cell_name</span><span class="o">+</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">_residu</span><span class="si">%d</span><span class="s1">.png&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">basename</span><span class="p">,</span> <span class="mi">2</span> <span class="k">if</span> <span class="n">residu2</span> <span class="k">else</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<span class="n">plot_all</span><span class="p">(</span><span class="n">residu2</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">plot_all</span><span class="p">(</span><span class="n">residu2</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="n">p</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>	<span class="c1">#displays the graphs</span>
+<span class="k">print</span> <span class="p">([</span><span class="n">R_1</span><span class="p">,</span> <span class="n">R_2</span><span class="p">,</span> <span class="n">R_3</span><span class="p">])</span>		<span class="c1">#outputs radius obtained by 3 methods</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Kanishk.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

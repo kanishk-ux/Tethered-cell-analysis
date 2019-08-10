@@ -1,0 +1,338 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>model &mdash; MTP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="MTP 1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for model</h1><div class="highlight"><pre>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	Contains 2 primary </span>
+<span class="sd">		analyze: Performs Linear Regression Analysis the cropped portion of all the frames and outputs the</span>
+<span class="sd">				 centre of mass(COM) data for and a plot of COM for furthur use</span>
+<span class="sd">		compute: Calculates frequency, change in angle per frame, total clockwise/counter-clockwise time </span>
+<span class="sd">				interval and no of frames and all else necessary outputs. Also outputs the finally analyzed </span>
+<span class="sd">				data in the form of CSV files and graphs</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">imgpros</span>
+<span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">linear_model</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">utilities</span>
+
+<span class="c1">#defining variables</span>
+<span class="n">slopes</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">tracedia</span> <span class="o">=</span><span class="p">[]</span>
+<span class="n">lens</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">xcomlist2</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">ycomlist2</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">xcomlist</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">ycomlist</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">angles</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+<div class="viewcode-block" id="analyze"><a class="viewcode-back" href="../model.html#model.analyze">[docs]</a><span class="k">def</span> <span class="nf">analyze</span><span class="p">():</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">		Calculates the slope of the regression line of the cropped region for each frame after thresholding </span>
+<span class="sd">		which is used by the compute function to calculate the change in angle per frame and the angular frequency.</span>
+<span class="sd">		Also calculates the diameter of the least fitting circle of the trace of the rotating cell which gives</span>
+<span class="sd">		us the length of the cell Other calculations include xcom and ycom of the the thresholded cell for each frame</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	
+	<span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+
+	<span class="c1">#importing required variables from previous corresponding files</span>
+	<span class="n">meta</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">meta</span>
+	<span class="n">filename</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">filename</span>
+	<span class="n">folder_path</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">folder_path</span>
+	<span class="n">num_frames</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">num_frames</span>
+	<span class="n">delay</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">delay</span>
+	<span class="n">refPt</span> <span class="o">=</span> <span class="n">imgpros</span><span class="o">.</span><span class="n">refPt</span>
+	<span class="n">trace</span> <span class="o">=</span> <span class="n">imgpros</span><span class="o">.</span><span class="n">trace</span>
+	<span class="n">out_folder</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">out_folder</span>
+
+	<span class="k">global</span> <span class="n">slopes</span><span class="p">,</span><span class="n">lens</span><span class="p">,</span><span class="n">tracedia</span><span class="p">,</span><span class="n">xcomlist2</span><span class="p">,</span><span class="n">ycomlist2</span><span class="p">,</span><span class="n">xcomlist</span><span class="p">,</span><span class="n">ycomlist</span> 	<span class="c1">#defining global variales</span>
+	<span class="n">prev_a</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="n">addr</span> <span class="o">=</span> <span class="n">folder_path</span> <span class="o">+</span> <span class="s1">&#39;/img_000000&#39;</span>
+	<span class="n">ad</span> <span class="o">=</span> <span class="s1">&#39;_Default_000.tif&#39;</span>
+	<span class="k">while</span> <span class="p">(</span><span class="n">count</span><span class="o">&lt;</span><span class="n">num_frames</span><span class="p">):</span>		<span class="c1">#looping over all frames</span>
+		<span class="k">if</span> <span class="n">meta</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>				<span class="c1">#when metadata is not availbale</span>
+			<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">folder_path</span> <span class="o">+</span> <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;00000&quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%05d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span><span class="p">)))</span>
+		<span class="k">else</span><span class="p">:</span>						<span class="c1">#when metadata is available</span>
+			<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">addr</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%03d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="n">ad</span><span class="p">)</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">imgpros</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+		<span class="n">orgimg</span><span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">orgimg</span><span class="p">,</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>		<span class="c1">#using rectangle function of cv2 library</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">refPt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span><span class="n">refPt</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>		<span class="c1">#definfing final frame coordinates</span>
+		<span class="n">points</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">frame</span><span class="o">==</span><span class="mi">0</span><span class="p">)</span>
+		<span class="n">revP</span><span class="o">=</span><span class="p">[]</span>						<span class="c1">#initializing variable revP</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+			<span class="n">revP</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">points</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">],</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]])</span>
+		<span class="n">points</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">revP</span><span class="p">)</span>	<span class="c1">#storing data in numpy array for easier analysis</span>
+		<span class="n">xcom</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">points</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>		<span class="c1">#caluclting xcom by finding average</span>
+		<span class="n">ycom</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">points</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>		<span class="c1">#caluclting ycom by finding average</span>
+		<span class="n">xcomlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xcom</span><span class="p">)</span>				<span class="c1">#appending to xcomlist</span>
+		<span class="n">ycomlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ycom</span><span class="p">)</span>				<span class="c1">#appending to ycom list</span>
+		<span class="n">stDevX</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">points</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>		<span class="c1">#calculating standard deviation using std function of numpy library</span>
+		<span class="n">stDevY</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">points</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>
+		<span class="n">verticality</span> <span class="o">=</span> <span class="n">stDevY</span><span class="o">/</span><span class="n">stDevX</span> 		<span class="c1"># handle div by 0 cases</span>
+		<span class="n">slope</span><span class="o">=</span><span class="mi">0</span>								<span class="c1">#initializing slope to 0</span>
+		<span class="n">regr</span> <span class="o">=</span> <span class="n">linear_model</span><span class="o">.</span><span class="n">LinearRegression</span><span class="p">()</span>		<span class="c1">#calculating linear regression to find best fit line</span>
+		<span class="k">if</span> <span class="n">verticality</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">:</span>					<span class="c1">#in case the slope of line does not tend to 90 degrees</span>
+			<span class="n">regr</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">points</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]],</span> <span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">1</span><span class="p">)),</span> <span class="n">points</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>
+			<span class="n">m</span> <span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="o">-</span><span class="n">regr</span><span class="o">.</span><span class="n">coef_</span><span class="p">)</span>		<span class="c1">#since slope is not close to 90, taninv will work</span>
+			<span class="n">slope</span> <span class="o">=</span><span class="n">regr</span><span class="o">.</span><span class="n">coef_</span>
+			<span class="n">c</span><span class="o">=</span> <span class="n">regr</span><span class="o">.</span><span class="n">intercept_</span>
+		<span class="k">else</span><span class="p">:</span>								<span class="c1">#in case slope of line is close to 90 degrees</span>
+			<span class="n">regr</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">points</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]],</span> <span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">1</span><span class="p">)),</span> <span class="n">points</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>
+			<span class="n">slope</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">regr</span><span class="o">.</span><span class="n">coef_</span>
+			<span class="n">m</span> <span class="o">=</span><span class="mf">1.57</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="o">-</span><span class="n">regr</span><span class="o">.</span><span class="n">coef_</span><span class="p">)</span>	<span class="c1">#since slope is close to 90 degrees, calculate cotinv instead of taninv</span>
+			<span class="n">c</span><span class="o">=</span> <span class="o">-</span><span class="n">regr</span><span class="o">.</span><span class="n">intercept_</span><span class="o">/</span><span class="n">regr</span><span class="o">.</span><span class="n">coef_</span>
+		<span class="n">count</span><span class="o">+=</span><span class="mi">1</span>							<span class="c1">#increases counter</span>
+
+		<span class="n">slopes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+		<span class="n">y1</span> <span class="o">=</span> <span class="n">ycom</span><span class="o">-</span><span class="n">slope</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">xcom</span>
+		<span class="n">y2</span><span class="o">=</span><span class="n">slope</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">xcom</span><span class="p">)</span>
+		<span class="n">point2</span> <span class="o">=</span> <span class="p">[</span><span class="n">frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">y2</span><span class="o">+</span><span class="n">ycom</span><span class="p">]</span>
+		<span class="n">point1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">y1</span><span class="p">]</span>
+		<span class="n">contours</span><span class="p">,</span> <span class="n">heirarchy</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">findContours</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>		<span class="c1">#calling findContours function of cv2 library</span>
+		<span class="n">cnt</span> <span class="o">=</span> <span class="n">contours</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="p">(</span><span class="n">xxx</span><span class="p">,</span> <span class="n">yyy</span><span class="p">),</span> <span class="n">radi</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">minEnclosingCircle</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span>
+		<span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">xxx</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">yyy</span><span class="p">))</span>		<span class="c1">#initializing variable for coordinates of centre</span>
+		<span class="n">radi</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">radi</span><span class="p">)</span>					<span class="c1">#initializing variable for radius</span>
+		<span class="n">nframe</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+		<span class="n">lens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">radi</span><span class="o">*</span><span class="mi">2</span><span class="p">)</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">namedWindow</span><span class="p">(</span><span class="s1">&#39;image&#39;</span><span class="p">,</span><span class="n">cv2</span><span class="o">.</span><span class="n">WINDOW_NORMAL</span><span class="p">)</span>		<span class="c1">#calling namesWindow function of cv2 library</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">resizeWindow</span><span class="p">(</span><span class="s1">&#39;image&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span><span class="mi">600</span><span class="p">)</span>				<span class="c1">#calling resizeWindow function of cv2 library</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">255</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span>
+		<span class="n">trace</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span><span class="n">trace</span><span class="p">)</span>				<span class="c1">#setting maximum coordinates as frame size</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">255</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">frame</span><span class="p">[</span><span class="n">frame</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span>
+
+		<span class="n">contours</span><span class="p">,</span> <span class="n">heirarchy</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">findContours</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>		<span class="c1">#calling findContours function of cv2 library</span>
+		<span class="n">cnt</span> <span class="o">=</span> <span class="n">contours</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">),</span> <span class="n">rad</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">minEnclosingCircle</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span>		<span class="c1">#calling minEnclosingCircle function of cv2 library</span>
+		<span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">xx</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">yy</span><span class="p">))</span>
+		<span class="n">rad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
+		<span class="n">tracedia</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rad</span><span class="o">*</span><span class="mi">2</span><span class="p">)</span>
+		<span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">y1</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">1000</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">y2</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">1000</span><span class="p">)</span> <span class="p">):</span>
+			<span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">frame</span><span class="p">,(</span><span class="nb">int</span><span class="p">(</span><span class="n">point1</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="nb">int</span><span class="p">(</span><span class="n">point1</span><span class="p">[</span><span class="mi">1</span><span class="p">])),(</span><span class="nb">int</span><span class="p">(</span><span class="n">point2</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="nb">int</span><span class="p">(</span><span class="n">point2</span><span class="p">[</span><span class="mi">1</span><span class="p">])),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">255</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="p">(</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">))</span>			<span class="c1">#calling resize function of cv2 library</span>
+		<span class="n">printtrace</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+		<span class="n">printtrace</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">printtrace</span><span class="p">,(</span><span class="mi">300</span><span class="p">,</span><span class="mi">300</span><span class="p">))</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">frame</span><span class="p">,</span> <span class="n">printtrace</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>	<span class="c1">#concatenating arrays using numpys inbuilt function</span>
+		<span class="n">orgimg</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">orgimg</span><span class="p">,</span> <span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">frame</span><span class="p">,</span> <span class="n">orgimg</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>    <span class="c1">#Resize image</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s1">&#39;image&#39;</span><span class="p">,</span><span class="n">frame</span><span class="p">)</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>
+
+	<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">xcomlist</span><span class="p">,</span><span class="n">ycomlist</span><span class="p">)</span>			<span class="c1">#computing scatter plot using pyplot library</span>
+	<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">utilities</span><span class="o">.</span><span class="n">cell_name</span><span class="p">)</span>			<span class="c1">#defining title of plot</span>
+	<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x com&#39;</span><span class="p">)</span>						<span class="c1">#defining x coordinate of plot</span>
+	<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;y com&#39;</span><span class="p">)</span>						<span class="c1">#defining y coordinate of plot</span>
+	<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">utilities</span><span class="o">.</span><span class="n">cell_name</span>  <span class="o">+</span><span class="s1">&#39;xcom_ycom.png&#39;</span><span class="p">)</span>
+
+	<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+	<span class="n">xcommean</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">xcomlist</span><span class="p">)</span>			<span class="c1">#calculating mean by calling numpys function</span>
+	<span class="n">ycommean</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ycomlist</span><span class="p">)</span>
+
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">xcomlist</span><span class="p">:</span>
+		<span class="n">xcomlist2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="n">xcommean</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ycomlist</span><span class="p">:</span>
+		<span class="n">ycomlist2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="o">-</span><span class="n">ycommean</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute"><a class="viewcode-back" href="../model.html#model.compute">[docs]</a><span class="k">def</span> <span class="nf">compute</span><span class="p">():</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	Calculates frequency, change in angle per frame, total clockwise/counter-clockwise time </span>
+<span class="sd">	interval and no of frames and all else necessary outputs. Also outputs the finally analyzed </span>
+<span class="sd">	data in the form of CSV files and graphs</span>
+
+<span class="sd">	&#39;&#39;&#39;</span>
+	
+	<span class="c1">#defines variables for furthur use</span>
+	<span class="n">time</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">time</span>
+	<span class="n">out_folder</span> <span class="o">=</span> <span class="n">utilities</span><span class="o">.</span><span class="n">out_folder</span>
+	<span class="n">a</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">prev_a</span> <span class="o">=</span><span class="mi">0</span>
+	<span class="n">total_angle</span> <span class="o">=</span> <span class="mf">0.0</span>	<span class="c1">#change in total angle</span>
+	<span class="n">num_clock</span> <span class="o">=</span> <span class="mi">0</span>		<span class="c1">#number of frames with clockwise rotation</span>
+	<span class="n">num_anti</span> <span class="o">=</span> <span class="mi">0</span>		<span class="c1">#number of frames with anti clockwise rotation</span>
+	<span class="n">num_switch1</span> <span class="o">=</span> <span class="mi">0</span>		<span class="c1">#number of switches from clockwise to counter</span>
+	<span class="n">num_switch2</span> <span class="o">=</span> <span class="mi">0</span>		<span class="c1">#number of switches from counter to clockwise</span>
+	<span class="n">curr_block</span> <span class="o">=</span> <span class="mi">0</span> 		<span class="c1">#number of consecutive same directions</span>
+	<span class="n">pos_total</span> <span class="o">=</span> <span class="mi">0</span> 		<span class="c1">#total number of frames with positive direction</span>
+	<span class="n">neg_total</span> <span class="o">=</span> <span class="mi">0</span> 		<span class="c1">#total number of frames with negative direction</span>
+	<span class="k">global</span> <span class="n">slopes</span><span class="p">,</span><span class="n">lens</span><span class="p">,</span><span class="n">tracedia</span><span class="p">,</span><span class="n">angles</span>		<span class="c1">#define global variable</span>
+	<span class="n">slopes</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">slopes</span><span class="p">)</span>			<span class="c1">#covert slopes array to numpy array</span>
+	<span class="n">prevang</span> <span class="o">=</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+	<span class="n">count</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">blocks</span><span class="o">=</span><span class="p">[]</span>
+	<span class="n">negfreqavg</span> <span class="o">=</span><span class="mi">0</span>
+	<span class="n">posfreqavg</span> <span class="o">=</span><span class="mi">0</span>
+	<span class="n">negcount</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">poscount</span> <span class="o">=</span><span class="mi">0</span>
+
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">slopes</span><span class="p">:</span>	<span class="c1">#for each slope in list (each frame&#39;s slope)</span>
+		<span class="n">currang</span> <span class="o">=</span> <span class="n">i</span> 	<span class="c1">#defining current angle</span>
+		<span class="n">diff</span> <span class="o">=</span> <span class="n">currang</span><span class="o">-</span><span class="n">prevang</span>		<span class="c1">#calculating difference</span>
+		<span class="n">abs_diff</span><span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">diff</span><span class="p">),</span><span class="nb">abs</span><span class="p">(</span><span class="n">diff</span><span class="o">-</span><span class="mf">3.14</span><span class="p">),(</span><span class="nb">abs</span><span class="p">(</span><span class="n">diff</span><span class="o">+</span><span class="mf">3.14</span><span class="p">)))</span>	<span class="c1">#calculating absolute difference</span>
+		<span class="k">if</span> <span class="n">abs_diff</span><span class="o">!=</span><span class="mi">0</span><span class="p">:</span>		<span class="c1">#if cell has rotated from previous frame</span>
+			<span class="k">if</span> <span class="p">((</span><span class="n">diff</span><span class="o">/</span><span class="n">abs_diff</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">|</span><span class="p">((</span><span class="n">diff</span><span class="o">-</span><span class="mf">3.14</span><span class="p">)</span><span class="o">/</span><span class="n">abs_diff</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span><span class="o">|</span><span class="p">((</span><span class="n">diff</span><span class="o">+</span><span class="mf">3.14</span><span class="p">)</span><span class="o">/</span><span class="n">abs_diff</span><span class="o">==</span><span class="mi">1</span><span class="p">)):</span>
+				<span class="n">a</span><span class="o">=</span><span class="mi">1</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">a</span><span class="o">=-</span><span class="mi">1</span>
+		<span class="k">else</span><span class="p">:</span>				<span class="c1">#if cell has not rotated</span>
+			<span class="n">a</span><span class="o">=</span><span class="n">prev_a</span>
+		<span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+			<span class="n">total_angle</span> <span class="o">=</span> <span class="n">currang</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">total_angle</span> <span class="o">+=</span> <span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span>
+		<span class="n">curr_block</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">if</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+			<span class="n">num_clock</span> <span class="o">+=</span> <span class="mi">1</span>		<span class="c1">#clockwise rotation</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">num_anti</span> <span class="o">+=</span> <span class="mi">1</span>		<span class="c1">#anticlockwise rotation</span>
+		<span class="k">if</span> <span class="n">prev_a</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">a</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+			<span class="n">pos_total</span> <span class="o">+=</span> <span class="n">curr_block</span>
+			<span class="k">if</span> <span class="n">curr_block</span><span class="o">&gt;</span><span class="mi">5</span><span class="p">:</span>
+				<span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curr_block</span><span class="p">)</span>	
+				<span class="n">num_switch1</span> <span class="o">+=</span> <span class="mi">1</span>		<span class="c1">#switch from clockwise to counter-clockwise</span>
+			<span class="n">curr_block</span> <span class="o">=</span> <span class="mi">1</span>	
+		<span class="k">if</span> <span class="n">prev_a</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+			<span class="n">neg_total</span> <span class="o">+=</span> <span class="n">curr_block</span>		<span class="c1">#switch from anti-clockwise to clockwise</span>
+			<span class="k">if</span> <span class="n">curr_block</span><span class="o">&gt;</span><span class="mi">5</span><span class="p">:</span>
+				<span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">curr_block</span><span class="p">)</span>
+				<span class="n">num_switch2</span> <span class="o">+=</span> <span class="mi">1</span>
+			<span class="n">curr_block</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="n">prev_a</span> <span class="o">=</span> <span class="n">a</span>
+		<span class="n">angles</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">count</span><span class="p">,</span><span class="n">currang</span><span class="p">,</span><span class="n">diff</span><span class="p">,</span><span class="n">abs_diff</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span><span class="p">,((</span><span class="n">abs_diff</span><span class="o">*</span><span class="mi">1000</span><span class="p">)</span><span class="o">/</span><span class="n">time</span><span class="p">),</span> <span class="n">total_angle</span><span class="p">,</span> <span class="n">lens</span><span class="p">[</span><span class="n">count</span><span class="p">],</span> <span class="n">tracedia</span><span class="p">[</span><span class="n">count</span><span class="p">],(</span><span class="mi">1000</span><span class="o">*</span><span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">time</span><span class="o">*</span><span class="mf">6.28</span><span class="p">)])</span>
+		<span class="k">if</span><span class="p">((</span><span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">time</span><span class="o">*</span><span class="mf">6.28</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">):</span>
+			<span class="n">posfreqavg</span> <span class="o">=</span> <span class="n">posfreqavg</span> <span class="o">+</span> <span class="p">(</span><span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">time</span><span class="o">*</span><span class="mf">6.28</span><span class="p">)</span>
+			<span class="n">poscount</span><span class="o">=</span> <span class="n">poscount</span> <span class="o">+</span><span class="mi">1</span>		<span class="c1">#increasing postive count</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">negfreqavg</span> <span class="o">=</span> <span class="n">negfreqavg</span> <span class="o">+</span> <span class="p">(</span><span class="n">abs_diff</span><span class="o">*</span><span class="n">a</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">time</span><span class="o">*</span><span class="mf">6.28</span><span class="p">)</span>
+			<span class="n">negcount</span> <span class="o">=</span> <span class="n">negcount</span> <span class="o">+</span><span class="mi">1</span>		<span class="c1">#increasing negative count</span>
+		<span class="n">count</span><span class="o">+=</span><span class="mi">1</span>
+		<span class="n">prevang</span><span class="o">=</span><span class="n">i</span>
+	<span class="n">angles</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">angles</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>	<span class="c1">#triuncating numpy array</span>
+	<span class="n">stDev</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">angles</span><span class="p">[:,</span><span class="mi">6</span><span class="p">])</span>		<span class="c1">#calculating standard deviation</span>
+	<span class="n">mean</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">angles</span><span class="p">[:,</span><span class="mi">6</span><span class="p">])</span>		<span class="c1">#calculating mean</span>
+	<span class="n">lastent</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">if</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>				<span class="c1">#blocks to calcuate number of changes b/w clockwise and counter clockwise rotations</span>
+		<span class="n">lastent</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">lastent</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">angles</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">angles</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+		<span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curr_block</span><span class="p">)</span>		<span class="c1">#if rotation direction has changed</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">curr_block</span><span class="p">))</span>	<span class="c1">#if rotation direction has not changed</span>
+	<span class="n">blocks</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
+	<span class="n">pos_total</span> <span class="o">=</span><span class="mi">0</span>
+	<span class="n">neg_total</span> <span class="o">=</span><span class="mi">0</span>
+	<span class="k">for</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+		<span class="k">if</span> <span class="n">dist</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+			<span class="n">pos_total</span><span class="o">+=</span><span class="n">dist</span> 			<span class="c1">#counts number of clockwise rotations</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">neg_total</span><span class="o">-=</span><span class="n">dist</span> 			<span class="c1">#counts numebr of counter-clockwise rotations</span>
+	
+	<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out_folder</span> <span class="o">+</span> <span class="s1">&#39;file_details.csv&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>		<span class="c1">#saving output in file named file_details.csv</span>
+		<span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+		<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;Frame Distribution&#39;</span><span class="p">,</span> <span class="s1">&#39;CW rotation frames&#39;</span><span class="p">,</span> <span class="s1">&#39;CW Rotation Time&#39;</span><span class="p">,</span> <span class="s1">&#39;CCW -&gt; CW Switches&#39;</span><span class="p">,</span><span class="s1">&#39;CCW rotation frames&#39;</span><span class="p">,</span> <span class="s1">&#39;CCW Rotation Time&#39;</span><span class="p">,</span> <span class="s1">&#39;CW -&gt; CCW Switchs&#39;</span><span class="p">,</span> <span class="s1">&#39;Avg CW rot time interval&#39;</span><span class="p">,</span> <span class="s1">&#39;Avg CCW rot time interval&#39;</span><span class="p">,</span> <span class="s1">&#39;Mean Angular Speed&#39;</span><span class="p">,</span> <span class="s1">&#39;Deviation from mean&#39;</span><span class="p">,</span> <span class="s1">&#39;Ratio of time intervals [CW/CCW]&#39;</span><span class="p">,</span> <span class="s1">&#39;Average CCW frequency&#39;</span><span class="p">,</span> <span class="s1">&#39;Avg CW frequency&#39;</span><span class="p">])</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">num_switch1</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_switch2</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">neg_total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">blocks</span><span class="p">,</span> <span class="n">pos_total</span><span class="p">,</span> <span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch1</span><span class="p">,</span> <span class="n">neg_total</span><span class="p">,</span> <span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch2</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">),</span> <span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">),</span> <span class="n">mean</span><span class="p">,</span> <span class="n">stDev</span><span class="p">,</span> <span class="s1">&#39;Nan&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">posfreqavg</span><span class="o">/</span><span class="n">poscount</span><span class="p">),</span> <span class="p">(</span><span class="n">negfreqavg</span><span class="o">/</span><span class="n">negcount</span><span class="p">)])</span>
+		<span class="k">elif</span><span class="p">(</span><span class="n">num_switch1</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_switch2</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">pos_total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">blocks</span><span class="p">,</span> <span class="n">pos_total</span><span class="p">,</span> <span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch1</span><span class="p">,</span> <span class="n">neg_total</span><span class="p">,</span> <span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch2</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">),</span> <span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">),</span> <span class="n">mean</span><span class="p">,</span> <span class="n">stDev</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">num_switch2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">neg_total</span><span class="p">),</span> <span class="p">(</span><span class="n">posfreqavg</span><span class="o">/</span><span class="n">poscount</span><span class="p">),</span> <span class="p">(</span><span class="n">negfreqavg</span><span class="o">/</span><span class="n">negcount</span><span class="p">)])</span>
+		<span class="k">elif</span><span class="p">(</span><span class="n">num_switch1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">blocks</span><span class="p">,</span> <span class="n">pos_total</span><span class="p">,</span> <span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch1</span><span class="p">,</span> <span class="n">neg_total</span><span class="p">,</span> <span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">)</span><span class="o">/</span><span class="n">num_switch2</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">stDev</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">num_switch2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">num_switch1</span><span class="p">),</span> <span class="p">(</span><span class="n">posfreqavg</span><span class="o">/</span><span class="n">poscount</span><span class="p">),</span> <span class="p">(</span><span class="n">negfreqavg</span><span class="o">/</span><span class="n">negcount</span><span class="p">)])</span>
+		<span class="k">elif</span><span class="p">(</span><span class="n">num_switch2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">blocks</span><span class="p">,</span> <span class="n">pos_total</span><span class="p">,</span> <span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch1</span><span class="p">,</span> <span class="n">neg_total</span><span class="p">,</span> <span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch2</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">)</span><span class="o">/</span><span class="n">num_switch1</span><span class="p">,</span> <span class="mi">0</span> <span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">stDev</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">num_switch2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">num_switch1</span><span class="p">),</span> <span class="p">(</span><span class="n">posfreqavg</span><span class="o">/</span><span class="n">poscount</span><span class="p">),</span> <span class="p">(</span><span class="n">negfreqavg</span><span class="o">/</span><span class="n">negcount</span><span class="p">)])</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">blocks</span><span class="p">,</span> <span class="n">pos_total</span><span class="p">,</span> <span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch1</span><span class="p">,</span> <span class="n">neg_total</span><span class="p">,</span> <span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">,</span> <span class="n">num_switch2</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">time</span><span class="p">)</span><span class="o">/</span><span class="n">num_switch1</span><span class="p">,</span> <span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">time</span><span class="p">)</span><span class="o">/</span><span class="n">num_switch2</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">stDev</span><span class="p">,</span> <span class="p">(</span><span class="n">pos_total</span><span class="o">*</span><span class="n">num_switch2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">neg_total</span><span class="o">*</span><span class="n">num_switch1</span><span class="p">),</span> <span class="p">(</span><span class="n">posfreqavg</span><span class="o">/</span><span class="n">poscount</span><span class="p">),</span> <span class="p">(</span><span class="n">negfreqavg</span><span class="o">/</span><span class="n">negcount</span><span class="p">)])</span>	</div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Kanishk.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

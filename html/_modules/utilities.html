@@ -1,0 +1,254 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>utilities &mdash; MTP 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="MTP 1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for utilities</h1><div class="highlight"><pre>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	func initializer takes input from the GUI and saves them in variables for furthur use anywhere in the program</span>
+<span class="sd">	func preview displays a preview of initial 50 frames to help cropping of rotating cell by the user</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">imgpros</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+
+
+<span class="sd">&#39;&#39;&#39;defines variables for storing the inputs obtained from the user from the GUI&#39;&#39;&#39;</span>
+<span class="n">image</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">refPt</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">cropping</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">folder_path</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+<span class="n">num_frames</span> <span class="o">=</span><span class="mi">0</span>
+<span class="n">meta</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">delay</span><span class="o">=</span><span class="mi">0</span>
+<span class="n">outfilename</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+<span class="n">out_folder</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+<span class="n">time</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">cell_name</span><span class="o">=</span><span class="s1">&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="intializer"><a class="viewcode-back" href="../utilities.html#utilities.intializer">[docs]</a><span class="k">def</span> <span class="nf">intializer</span><span class="p">(</span><span class="n">argv</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">		Initializes the inputs taken from encrypt.py and stores them for furthur use</span>
+<span class="sd">		Input: argv (input taken in command line from the user)</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="k">print</span> <span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+	<span class="k">global</span> <span class="n">folder_path</span><span class="p">,</span><span class="n">filename</span><span class="p">,</span><span class="n">num_frames</span><span class="p">,</span><span class="n">meta</span><span class="p">,</span><span class="n">delay</span><span class="p">,</span><span class="n">outfilename</span><span class="p">,</span><span class="n">out_folder</span><span class="p">,</span><span class="n">time</span><span class="p">,</span><span class="n">cell_name</span>			<span class="c1">#defines global variables for furthur use</span>
+	<span class="n">folder_path</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>		<span class="c1">#folder path is taken from the user from command line</span>
+	<span class="k">print</span> <span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
+	<span class="n">folder</span><span class="o">=</span><span class="n">folder_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>	<span class="c1">#splits absolute folder path to separate folder path and file name</span>
+	<span class="n">a</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">folder_path</span><span class="o">=</span><span class="s2">&quot;&quot;</span>					<span class="c1">#initializes folder path</span>
+
+	<span class="k">while</span> <span class="n">a</span><span class="o">&lt;</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>		<span class="c1">#stores folder path from split name</span>
+		<span class="n">folder_path</span> <span class="o">+=</span> <span class="n">folder</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
+		<span class="n">folder_path</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
+		<span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="o">+</span><span class="mi">1</span>
+	<span class="n">filename</span><span class="o">=</span> <span class="n">folder</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>				<span class="c1">#stores file name</span>
+	<span class="n">tuta</span> <span class="o">=</span> <span class="n">folder_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>	<span class="c1">#stores split folder path</span>
+	<span class="n">cell_name</span> <span class="o">=</span> <span class="n">tuta</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">tuta</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span>	<span class="c1">#defining variable cell_name</span>
+	<span class="n">out_folder</span> <span class="o">=</span> <span class="n">folder_path</span> <span class="o">+</span> <span class="n">cell_name</span> <span class="o">+</span>  <span class="s2">&quot;_out/&quot;</span>
+	<span class="k">global</span> <span class="n">num_frames</span>				<span class="c1">#defining global variable num_frames to define number of frames for image analysis</span>
+	<span class="n">num_frames</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>			<span class="c1">#number of frames is input from user</span>
+	<span class="n">num_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_frames</span><span class="p">)</span>	<span class="c1">#coverting variable to int</span>
+
+	<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_folder</span><span class="p">):</span>
+		<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;creating new directory&#39;</span><span class="p">)</span>
+		<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_folder</span><span class="p">)</span>		<span class="c1">#creates new folder with name out_folder to save output data</span>
+	<span class="n">outfilename</span> <span class="o">=</span> <span class="s2">&quot;raw_data.csv&quot;</span>	<span class="c1">#defining output file name for storing csv data</span>
+
+	<span class="n">meta</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+	<span class="k">if</span> <span class="n">meta</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>					<span class="c1">#takes metadata from folder and changes file name to specified format</span>
+		<span class="n">fd1</span> <span class="o">=</span> <span class="s1">&#39;FrameKey-&#39;</span>
+		<span class="n">fd2</span> <span class="o">=</span> <span class="s1">&#39;-0-0&#39;</span>
+		<span class="k">print</span> <span class="p">(</span><span class="n">fd1</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_frames</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fd2</span><span class="p">)</span>
+		<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">folder_path</span> <span class="o">+</span> <span class="s1">&#39;/metadata.txt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+			<span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+		<span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">fd1</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_frames</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fd2</span><span class="p">][</span><span class="s1">&#39;ElapsedTime-ms&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">data</span><span class="p">[</span><span class="n">fd1</span> <span class="o">+</span> <span class="s1">&#39;0&#39;</span> <span class="o">+</span> <span class="n">fd2</span><span class="p">][</span><span class="s1">&#39;ElapsedTime-ms&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="n">num_frames</span>
+	<span class="k">else</span><span class="p">:</span>							<span class="c1">#takes file name as per obtained filename convention</span>
+		<span class="n">fps</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>				<span class="c1">#fps is input from user</span>
+		<span class="n">fps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span>
+		<span class="c1"># int(raw_input(&#39;Enter FPS: &#39;))</span>
+		<span class="n">time</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span>		<span class="c1">#time inteval b/w 2 frames equals to inverse of the user-specified fps</span>
+	<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;time between frames &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="p">))</span>
+
+	<span class="n">delay</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>					<span class="c1">#time difference to be taken between adjacent frames to be displayed to user in GUI</span>
+	<span class="n">delay</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>				<span class="c1">#takes values from 1-100 with 100 bring slowest and 1 being fastest</span></div>
+
+
+
+<div class="viewcode-block" id="preview"><a class="viewcode-back" href="../utilities.html#utilities.preview">[docs]</a><span class="k">def</span> <span class="nf">preview</span><span class="p">():</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	Displays a preview of initial 50 frames to help cropping of rotating cell by the user</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="k">global</span> <span class="n">meta</span><span class="p">,</span><span class="n">filename</span><span class="p">,</span><span class="n">folder_path</span><span class="p">,</span><span class="n">delay</span>		<span class="c1">#defining global variables</span>
+	<span class="n">addr</span> <span class="o">=</span> <span class="n">folder_path</span> <span class="o">+</span> <span class="s1">&#39;/img_000000&#39;</span>			
+	<span class="n">ad</span> <span class="o">=</span> <span class="s1">&#39;_Default_000.tif&#39;</span>
+	<span class="n">frame</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">+</span> <span class="s1">&#39;000&#39;</span> <span class="o">+</span> <span class="n">ad</span>
+	<span class="k">if</span> <span class="n">meta</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>								<span class="c1">#preview preferences if no metadata is present</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">folder_path</span> <span class="o">+</span> <span class="n">filename</span><span class="p">)</span>	<span class="c1">#reads image from folder and stores it as a frame</span>
+	<span class="k">else</span><span class="p">:</span>										<span class="c1">#preview preferences if metadata is present</span>
+		<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">addr</span><span class="o">+</span> <span class="s1">&#39;000&#39;</span><span class="o">+</span><span class="n">ad</span><span class="p">)</span>		<span class="c1">#preview preferences if metadata is present</span>
+	<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Previewing.....</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+	<span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">while</span> <span class="p">(</span><span class="n">count</span><span class="o">&lt;</span><span class="mi">50</span><span class="p">):</span>							<span class="c1">#loop for limiting number of frames to be previewed to 50</span>
+		<span class="k">if</span> <span class="n">meta</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>							<span class="c1">#case when metadata is not present</span>
+			<span class="k">print</span> <span class="p">(</span><span class="n">count</span><span class="p">)</span>
+			<span class="k">print</span> <span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+			<span class="k">print</span> <span class="p">(</span><span class="n">folder_path</span> <span class="o">+</span> <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;00000&quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%05d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span><span class="p">)))</span>
+			<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">folder_path</span> <span class="o">+</span> <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;00000&quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%05d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span><span class="p">)))</span>		<span class="c1">#processes 1 frame</span>
+		<span class="k">else</span><span class="p">:</span>									<span class="c1">#case when metadata is present</span>
+			<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">addr</span><span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%03d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="n">ad</span><span class="p">)</span>
+		<span class="n">image</span> <span class="o">=</span> <span class="n">imgpros</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>		<span class="c1">#thresholds the image before displaying it. Explained in imgpros file</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s1">&#39;image&#39;</span><span class="p">,</span><span class="n">image</span><span class="p">)</span>
+		<span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>						<span class="c1">#imparts delay in displaying frames in GUI</span>
+		<span class="n">count</span><span class="o">+=</span><span class="mi">1</span>								<span class="c1">#increases count</span></div>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">def click_and_crop(event, x, y, flags, param):</span>
+<span class="sd">	# grab references to the global variables</span>
+<span class="sd">	global refPt, cropping,image</span>
+<span class="sd">	# if the left mouse button was clicked, record the starting</span>
+<span class="sd">	# (x, y) coordinates and indicate that cropping is being</span>
+<span class="sd">	# performed</span>
+<span class="sd">	if event == cv2.EVENT_LBUTTONDOWN:</span>
+<span class="sd">		refPt = [(x, y)]</span>
+<span class="sd">		cropping = True</span>
+
+<span class="sd">	# check to see if the left mouse button was released</span>
+<span class="sd">	elif event == cv2.EVENT_LBUTTONUP:</span>
+<span class="sd">		# record the ending (x, y) coordinates and indicate that</span>
+<span class="sd">		# the cropping operation is finished</span>
+<span class="sd">		refPt.append((x, y))</span>
+<span class="sd">		cropping = False</span>
+
+<span class="sd">		# draw a rectangle around the region of interest</span>
+<span class="sd">		cv2.rectangle(image, refPt[0], refPt[1], (0, 255, 0), 2)</span>
+<span class="sd">		cv2.imshow(&quot;image&quot;, image)</span>
+
+<span class="sd">def crop(meta,filename,folder_path):</span>
+<span class="sd">	global image		</span>
+<span class="sd">	addr = folder_path + &#39;/img_000000&#39;</span>
+<span class="sd">	ad = &#39;_Default_000.tif&#39;</span>
+<span class="sd">	print (&#39;crop cell for analysis.....&#39;)</span>
+<span class="sd">	print (&#39;Press c to proceed after cropping&#39;)</span>
+<span class="sd">	print (&#39;Press r to redo&#39;)</span>
+<span class="sd">	if meta == 1:</span>
+<span class="sd">		frame = addr + &#39;000&#39; + ad</span>
+<span class="sd">	else:</span>
+<span class="sd">		frame = folder_path + filename</span>
+<span class="sd">	# load the image, clone it, and setup the mouse callback function</span>
+<span class="sd">	image = cv2.imread(frame)</span>
+<span class="sd">	image = threshold.threshold(image)</span>
+<span class="sd">	clone = image.copy()</span>
+<span class="sd">	cv2.namedWindow(&quot;image&quot;)</span>
+<span class="sd">	cv2.setMouseCallback(&quot;image&quot;, click_and_crop)</span>
+
+<span class="sd">	# keep looping until the &#39;q&#39; key is pressed</span>
+<span class="sd">	while True:</span>
+<span class="sd">		# display the image and wait for a keypress</span>
+<span class="sd">		cv2.imshow(&quot;image&quot;, image)</span>
+<span class="sd">		key = cv2.waitKey(1) &amp; 0xFF</span>
+
+<span class="sd">		# if the &#39;r&#39; key is pressed, reset the cropping region</span>
+<span class="sd">		if key == ord(&quot;r&quot;):</span>
+<span class="sd">			image = clone.copy()</span>
+
+<span class="sd">		# if the &#39;c&#39; key is pressed, break from the loop</span>
+<span class="sd">		elif key == ord(&quot;c&quot;):</span>
+<span class="sd">			break</span>
+
+<span class="sd">	# if there are two reference points, then crop the region of interest</span>
+<span class="sd">	# from teh image and display it</span>
+
+<span class="sd">	# close all open windows</span>
+<span class="sd">	cv2.destroyAllWindows()</span>
+
+<span class="sd">	a = image[refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]</span>
+<span class="sd">	trace = numpy.zeros((a.shape[0],a.shape[1]), numpy.uint8)</span>
+<span class="sd">	return refPt,trace</span>
+<span class="sd">&#39;&#39;&#39;</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Kanishk.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
